@@ -1,1 +1,1515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Safehouse Assault</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: #0b1110;
+      font-family: Arial, Helvetica, sans-serif;
+      color: #fff;
+    }
 
+    canvas {
+      display: block;
+      background: linear-gradient(#7ea6c6 0%, #9fc2db 42%, #314536 43%, #223224 100%);
+      cursor: crosshair;
+    }
+
+    #hud {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      user-select: none;
+    }
+
+    #crosshair {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 18px;
+      height: 18px;
+      transform: translate(-50%, -50%);
+    }
+
+    #crosshair::before,
+    #crosshair::after {
+      content: "";
+      position: absolute;
+      background: rgba(255,255,255,0.95);
+    }
+
+    #crosshair::before {
+      left: 8px;
+      top: 0;
+      width: 2px;
+      height: 18px;
+    }
+
+    #crosshair::after {
+      left: 0;
+      top: 8px;
+      width: 18px;
+      height: 2px;
+    }
+
+    .panel {
+      position: absolute;
+      background: rgba(10, 15, 18, 0.72);
+      border: 1px solid rgba(255,255,255,0.14);
+      padding: 10px 12px;
+      font-size: 14px;
+      line-height: 1.4;
+      box-shadow: 0 0 20px rgba(0,0,0,0.25);
+      backdrop-filter: blur(3px);
+    }
+
+    #stats {
+      left: 14px;
+      bottom: 14px;
+      min-width: 260px;
+    }
+
+    #objectivePanel {
+      right: 14px;
+      top: 14px;
+      width: 290px;
+      text-align: left;
+    }
+
+    #centerMessage {
+      position: absolute;
+      left: 50%;
+      bottom: 90px;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.55);
+      border: 1px solid rgba(255,255,255,0.16);
+      padding: 10px 16px;
+      font-size: 15px;
+      max-width: 70vw;
+      text-align: center;
+      display: none;
+    }
+
+    #progressWrap {
+      position: absolute;
+      left: 50%;
+      bottom: 52px;
+      transform: translateX(-50%);
+      width: 360px;
+      height: 18px;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.18);
+      display: none;
+    }
+
+    #progressBar {
+      width: 0%;
+      height: 100%;
+      background: linear-gradient(90deg, #70d98a, #b8ffcb);
+    }
+
+    #damageFlash {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background: rgba(255, 0, 0, 0);
+      transition: background 0.08s linear;
+    }
+
+    #menuOverlay {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background:
+        radial-gradient(circle at center, rgba(35,50,42,0.4), rgba(0,0,0,0.82)),
+        linear-gradient(135deg, #0a1110, #111a18);
+      z-index: 10;
+    }
+
+    #menuCard {
+      width: min(760px, 92vw);
+      background: rgba(10,15,18,0.9);
+      border: 1px solid rgba(255,255,255,0.15);
+      padding: 28px;
+      box-shadow: 0 0 30px rgba(0,0,0,0.45);
+    }
+
+    #menuCard h1 {
+      margin: 0 0 12px 0;
+      font-size: 34px;
+      letter-spacing: 1px;
+    }
+
+    #menuCard p {
+      color: #d4d9da;
+      line-height: 1.6;
+      margin: 10px 0;
+    }
+
+    .menuGrid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+      margin-top: 18px;
+    }
+
+    .menuBox {
+      background: rgba(255,255,255,0.04);
+      padding: 14px;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .menuBox h3 {
+      margin: 0 0 8px 0;
+      font-size: 16px;
+    }
+
+    #startBtn, #restartBtn {
+      margin-top: 20px;
+      pointer-events: auto;
+      cursor: pointer;
+      border: 0;
+      padding: 13px 18px;
+      font-size: 16px;
+      font-weight: bold;
+      background: #6fce85;
+      color: #0f1b11;
+    }
+
+    #restartBtn {
+      display: none;
+    }
+
+    #topBanner {
+      position: absolute;
+      top: 14px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(10,15,18,0.72);
+      border: 1px solid rgba(255,255,255,0.14);
+      padding: 8px 14px;
+      font-size: 14px;
+    }
+
+    .warn {
+      color: #ffd36c;
+    }
+
+    .danger {
+      color: #ff8f8f;
+    }
+
+    .good {
+      color: #8fffb2;
+    }
+
+    @media (max-width: 780px) {
+      .menuGrid {
+        grid-template-columns: 1fr;
+      }
+      #objectivePanel {
+        width: 240px;
+      }
+      #stats {
+        min-width: 220px;
+      }
+      #progressWrap {
+        width: 280px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <div id="hud">
+    <div id="topBanner">SAFEHOUSE ASSAULT</div>
+    <div id="crosshair"></div>
+
+    <div id="stats" class="panel">
+      <div><strong>Health:</strong> <span id="healthText">100</span></div>
+      <div><strong>Armor:</strong> <span id="armorText">50</span></div>
+      <div><strong>Weapon:</strong> <span id="weaponText">Rifle</span></div>
+      <div><strong>Ammo:</strong> <span id="ammoText">30 / 90</span></div>
+      <div><strong>Enemies:</strong> <span id="enemyText">0</span></div>
+    </div>
+
+    <div id="objectivePanel" class="panel">
+      <div><strong>Mission:</strong> Destroy the safehouse</div>
+      <div><strong>Status:</strong> <span id="statusText">Infiltrate the compound</span></div>
+      <div><strong>Mission Timer:</strong> <span id="missionTimerText">15:00</span></div>
+      <div><strong>Bomb:</strong> <span id="bombText">Not planted</span></div>
+      <div><strong>Defuse Alert:</strong> <span id="defuseText">None</span></div>
+    </div>
+
+    <div id="centerMessage"></div>
+
+    <div id="progressWrap">
+      <div id="progressBar"></div>
+    </div>
+
+    <div id="damageFlash"></div>
+  </div>
+
+  <div id="menuOverlay">
+    <div id="menuCard">
+      <h1>SAFEHOUSE ASSAULT</h1>
+      <p>
+        Assault a fortified forest safehouse, eliminate defenders, breach the house,
+        and plant the bomb on the hardpoint. Once planted, hold the position and stop
+        enemy reinforcements from defusing it.
+      </p>
+
+      <div class="menuGrid">
+        <div class="menuBox">
+          <h3>Controls</h3>
+          <p>
+            <strong>WASD</strong> move<br>
+            <strong>Mouse</strong> aim<br>
+            <strong>Shift</strong> sprint<br>
+            <strong>C</strong> crouch<br>
+            <strong>R</strong> reload<br>
+            <strong>1 / 2</strong> switch weapons<br>
+            <strong>E</strong> plant bomb / pick up item
+          </p>
+        </div>
+        <div class="menuBox">
+          <h3>Mission Rules</h3>
+          <p>
+            - You lose if health hits 0<br>
+            - You lose if enemies defuse the bomb<br>
+            - You lose when 15:00 expires<br>
+            - You win only if the bomb detonates while you are alive
+          </p>
+        </div>
+      </div>
+
+      <button id="startBtn">START MISSION</button>
+      <button id="restartBtn">RESTART</button>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      const canvas = document.getElementById('game');
+      const ctx = canvas.getContext('2d');
+
+      const ui = {
+        healthText: document.getElementById('healthText'),
+        armorText: document.getElementById('armorText'),
+        weaponText: document.getElementById('weaponText'),
+        ammoText: document.getElementById('ammoText'),
+        enemyText: document.getElementById('enemyText'),
+        statusText: document.getElementById('statusText'),
+        missionTimerText: document.getElementById('missionTimerText'),
+        bombText: document.getElementById('bombText'),
+        defuseText: document.getElementById('defuseText'),
+        centerMessage: document.getElementById('centerMessage'),
+        progressWrap: document.getElementById('progressWrap'),
+        progressBar: document.getElementById('progressBar'),
+        damageFlash: document.getElementById('damageFlash'),
+        startBtn: document.getElementById('startBtn'),
+        restartBtn: document.getElementById('restartBtn'),
+        menuOverlay: document.getElementById('menuOverlay')
+      };
+
+      function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+      }
+      resize();
+      window.addEventListener('resize', resize);
+
+      const TWO_PI = Math.PI * 2;
+      const FOV = Math.PI / 3;
+      const HALF_FOV = FOV / 2;
+      const MAX_DEPTH = 22;
+      const MOVE_SPEED = 3.3;
+      const SPRINT_MULT = 1.45;
+      const CROUCH_MULT = 0.62;
+      const ENEMY_RADIUS = 0.28;
+      const PLAYER_RADIUS = 0.22;
+      const PICKUP_RADIUS = 0.35;
+
+      const colors = {
+        wallNorth: '#7a8575',
+        wallSouth: '#6a7465',
+        wallEast: '#838b7e',
+        wallWest: '#60695d',
+        floorForest: '#314a30',
+        floorDirt: '#60523f',
+        floorConcrete: '#787878',
+        floorWood: '#6d5840',
+        floorBasement: '#505961',
+        ceiling: '#9aa3a7',
+        enemy: '#d24d4d',
+        enemyAlert: '#ff8a66',
+        playerGun: '#d7d7d7',
+        pickupAmmo: '#73c7ff',
+        pickupMed: '#86f0a1',
+        pickupArmor: '#c4c8ff',
+        bomb: '#ffdc72',
+        sky: '#8fb6d4'
+      };
+
+      const keys = {};
+      let mouseLocked = false;
+
+      document.addEventListener('keydown', (e) => {
+        keys[e.key.toLowerCase()] = true;
+        if (e.key === '1') player?.switchWeapon('rifle');
+        if (e.key === '2') player?.switchWeapon('pistol');
+        if (e.key.toLowerCase() === 'r') player?.reload();
+        if (e.key.toLowerCase() === 'e') interactPressed = true;
+      });
+
+      document.addEventListener('keyup', (e) => {
+        keys[e.key.toLowerCase()] = false;
+      });
+
+      canvas.addEventListener('click', () => {
+        if (gameState === 'menu') return;
+        if (!mouseLocked) canvas.requestPointerLock();
+      });
+
+      document.addEventListener('pointerlockchange', () => {
+        mouseLocked = document.pointerLockElement === canvas;
+      });
+
+      document.addEventListener('mousemove', (e) => {
+        if (!mouseLocked || !player || gameState === 'menu' || gameState === 'victory' || gameState === 'defeat') return;
+        player.angle += e.movementX * 0.0024;
+        player.pitch += e.movementY * 0.0015;
+        player.pitch = clamp(player.pitch, -0.65, 0.65);
+      });
+
+      function clamp(v, a, b) {
+        return Math.max(a, Math.min(b, v));
+      }
+
+      function dist(ax, ay, bx, by) {
+        return Math.hypot(ax - bx, ay - by);
+      }
+
+      function normalizeAngle(a) {
+        while (a < -Math.PI) a += TWO_PI;
+        while (a > Math.PI) a -= TWO_PI;
+        return a;
+      }
+
+      function rand(min, max) {
+        return min + Math.random() * (max - min);
+      }
+
+      function formatTime(sec) {
+        sec = Math.max(0, Math.floor(sec));
+        const m = Math.floor(sec / 60);
+        const s = sec % 60;
+        return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+      }
+
+      function showMessage(msg, ms = 1200) {
+        ui.centerMessage.style.display = 'block';
+        ui.centerMessage.textContent = msg;
+        clearTimeout(showMessage._t);
+        showMessage._t = setTimeout(() => {
+          ui.centerMessage.style.display = 'none';
+        }, ms);
+      }
+
+      function flashDamage() {
+        ui.damageFlash.style.background = 'rgba(255,0,0,0.18)';
+        clearTimeout(flashDamage._t);
+        flashDamage._t = setTimeout(() => {
+          ui.damageFlash.style.background = 'rgba(255,0,0,0)';
+        }, 90);
+      }
+
+      const mapW = 24;
+      const mapH = 24;
+
+      const map = [
+        "########################",
+        "#.........T.....T......#",
+        "#..T......T............#",
+        "#..............######..#",
+        "#...T..........#....#..#",
+        "#...............g...#..#",
+        "#..........#####.####..#",
+        "#.....T....#..........T#",
+        "#..........#...TT......#",
+        "#....T.....#...........#",
+        "#..........#...........#",
+        "#..........#...........#",
+        "#.....#######DDD####...#",
+        "#.....#.............#..#",
+        "#.....#..LLLLLLLLL..#..#",
+        "#..T..#..L.....U.L..#..#",
+        "#.....#..L..B..U.L..#..#",
+        "#.....#..L.....U.L..#..#",
+        "#.....#..LLLLSLLLL..#..#",
+        "#.....#.............#..#",
+        "#.....###############..#",
+        "#..............T.......#",
+        "#.....T................#",
+        "########################"
+      ];
+
+      const basementMap = [
+        "########################",
+        "#......................#",
+        "#......................#",
+        "#......................#",
+        "#......................#",
+        "#......................#",
+        "#......................#",
+        "#......................#",
+        "#......................#",
+        "#......................#",
+        "#......................#",
+        "#......................#",
+        "#......................#",
+        "#......................#",
+        "#.......#########......#",
+        "#.......#bbbbbbb#......#",
+        "#.......#bb...bb#......#",
+        "#.......#bb...bb#......#",
+        "#.......#bbbSbbb#......#",
+        "#.......#########......#",
+        "#......................#",
+        "#......................#",
+        "#......................#",
+        "########################"
+      ];
+
+      const topMap = [
+        "########################",
+        "#......................#",
+        "#......................#",
+        "#......................#",
+        "#......................#",
+        "#......................#",
+        "#......................#",
+        "#......................#",
+        "#......................#",
+        "#......................#",
+        "#......................#",
+        "#......................#",
+        "#.....#######DDD####...#",
+        "#.....#.............#..#",
+        "#.....#..UUUUUUUUU..#..#",
+        "#.....#..U.......U..#..#",
+        "#.....#..U..T..T.U..#..#",
+        "#.....#..U.......U..#..#",
+        "#.....#..UUUUSUUUU..#..#",
+        "#.....#.............#..#",
+        "#.....###############..#",
+        "#......................#",
+        "#......................#",
+        "########################"
+      ];
+
+      function tileAt(floor, x, y) {
+        const tx = Math.floor(x);
+        const ty = Math.floor(y);
+        if (tx < 0 || ty < 0 || tx >= mapW || ty >= mapH) return '#';
+        if (floor === 0) return map[ty][tx];
+        if (floor === -1) return basementMap[ty][tx];
+        return topMap[ty][tx];
+      }
+
+      function isWallChar(ch) {
+        return ch === '#';
+      }
+
+      function isSolidAt(floor, x, y) {
+        const ch = tileAt(floor, x, y);
+        return isWallChar(ch);
+      }
+
+      function isPassableAt(floor, x, y) {
+        return !isSolidAt(floor, x, y);
+      }
+
+      function isInsideHouse(x, y) {
+        return x >= 6 && x <= 19 && y >= 13 && y <= 19;
+      }
+
+      function isCourtyard(x, y) {
+        return x >= 5 && x <= 20 && y >= 12 && y <= 20;
+      }
+
+      const pickupTemplates = [];
+      const bombSite = { x: 12.5, y: 16.5, floor: 0, planted: false, timer: 0, plantDuration: 4.6, defuseTimer: 0, defuseBy: null };
+
+      const stairs = {
+        mainToTop: { x: 12.5, y: 18.5, floor: 0, targetFloor: 1, targetX: 12.5, targetY: 18.5 },
+        topToMain: { x: 12.5, y: 18.5, floor: 1, targetFloor: 0, targetX: 12.5, targetY: 18.5 },
+        mainToBasement: { x: 10.5, y: 18.5, floor: 0, targetFloor: -1, targetX: 10.5, targetY: 18.5 },
+        basementToMain: { x: 10.5, y: 18.5, floor: -1, targetFloor: 0, targetX: 10.5, targetY: 18.5 }
+      };
+
+      let player = null;
+      let enemies = [];
+      let pickups = [];
+      let bullets = [];
+      let particles = [];
+      let interactPressed = false;
+      let gameState = 'menu';
+      let missionTimer = 900;
+      let spawnReinforcementsDone = false;
+      let lastTime = 0;
+      let plantProgress = 0;
+      let postPlantMessageShown = false;
+
+      class Weapon {
+        constructor(name, magSize, reserve, damage, rate, reloadTime, spread) {
+          this.name = name;
+          this.magSize = magSize;
+          this.mag = magSize;
+          this.reserve = reserve;
+          this.damage = damage;
+          this.rate = rate;
+          this.reloadTime = reloadTime;
+          this.spread = spread;
+          this.cooldown = 0;
+          this.reloading = false;
+          this.reloadTimer = 0;
+        }
+
+        update(dt) {
+          if (this.cooldown > 0) this.cooldown -= dt;
+          if (this.reloading) {
+            this.reloadTimer -= dt;
+            if (this.reloadTimer <= 0) {
+              const needed = this.magSize - this.mag;
+              const take = Math.min(needed, this.reserve);
+              this.mag += take;
+              this.reserve -= take;
+              this.reloading = false;
+            }
+          }
+        }
+
+        tryShoot(ownerAngle) {
+          if (this.reloading || this.cooldown > 0) return null;
+          if (this.mag <= 0) {
+            showMessage('Out of ammo - reload');
+            return null;
+          }
+          this.mag--;
+          this.cooldown = 1 / this.rate;
+          const ang = ownerAngle + rand(-this.spread, this.spread);
+          return { ang, damage: this.damage };
+        }
+
+        reload() {
+          if (this.reloading) return;
+          if (this.mag === this.magSize) return;
+          if (this.reserve <= 0) return;
+          this.reloading = true;
+          this.reloadTimer = this.reloadTime;
+        }
+      }
+
+      class Player {
+        constructor() {
+          this.x = 2.5;
+          this.y = 2.5;
+          this.floor = 0;
+          this.angle = 0;
+          this.pitch = 0;
+          this.health = 100;
+          this.armor = 50;
+          this.radius = PLAYER_RADIUS;
+          this.speed = MOVE_SPEED;
+          this.regenDelay = 0;
+          this.planting = false;
+          this.weaponKey = 'rifle';
+          this.weapons = {
+            rifle: new Weapon('Rifle', 30, 90, 28, 8.5, 1.6, 0.04),
+            pistol: new Weapon('Pistol', 12, 48, 18, 4.2, 1.25, 0.02)
+          };
+        }
+
+        get weapon() {
+          return this.weapons[this.weaponKey];
+        }
+
+        switchWeapon(k) {
+          if (!this.weapons[k]) return;
+          this.weaponKey = k;
+        }
+
+        reload() {
+          this.weapon.reload();
+        }
+
+        takeDamage(dmg) {
+          if (gameState === 'victory' || gameState === 'defeat') return;
+          this.regenDelay = 4.0;
+          if (this.armor > 0) {
+            const absorb = Math.min(this.armor, dmg * 0.6);
+            this.armor -= absorb;
+            dmg -= absorb;
+          }
+          this.health -= dmg;
+          flashDamage();
+          if (this.health <= 0) {
+            this.health = 0;
+            loseGame('You were killed.');
+          }
+        }
+
+        update(dt) {
+          this.weapon.update(dt);
+
+          if (this.regenDelay > 0) this.regenDelay -= dt;
+          else if (this.health < 100) this.health = Math.min(100, this.health + 8 * dt);
+
+          let moveSpeed = this.speed;
+          if (keys['shift']) moveSpeed *= SPRINT_MULT;
+          if (keys['c']) moveSpeed *= CROUCH_MULT;
+
+          let mx = 0, my = 0;
+          const cos = Math.cos(this.angle);
+          const sin = Math.sin(this.angle);
+
+          if (keys['w']) { mx += cos; my += sin; }
+          if (keys['s']) { mx -= cos; my -= sin; }
+          if (keys['a']) { mx += sin; my -= cos; }
+          if (keys['d']) { mx -= sin; my += cos; }
+
+          const len = Math.hypot(mx, my);
+          if (len > 0) {
+            mx /= len;
+            my /= len;
+          }
+
+          this.tryMove(mx * moveSpeed * dt, my * moveSpeed * dt);
+          this.handleFloorTransition();
+
+          if (mouseLocked && (mouseDownLeft || keys[' '])) {
+            // Space also works as fire fallback
+          }
+        }
+
+        tryMove(dx, dy) {
+          const nx = this.x + dx;
+          const ny = this.y + dy;
+
+          if (!collides(this.floor, nx, this.y, this.radius)) this.x = nx;
+          if (!collides(this.floor, this.x, ny, this.radius)) this.y = ny;
+        }
+
+        handleFloorTransition() {
+          const s = Object.values(stairs).find(st =>
+            st.floor === this.floor &&
+            dist(this.x, this.y, st.x, st.y) < 0.55
+          );
+          if (s && keys[' ']) {
+            this.floor = s.targetFloor;
+            this.x = s.targetX;
+            this.y = s.targetY;
+            showMessage(this.floor === 1 ? 'Moved to top floor' : this.floor === -1 ? 'Moved to basement' : 'Moved to main floor', 900);
+          }
+        }
+      }
+
+      class Enemy {
+        constructor(x, y, floor, role) {
+          this.x = x;
+          this.y = y;
+          this.floor = floor;
+          this.role = role;
+          this.radius = ENEMY_RADIUS;
+          this.health = role === 'heavy' ? 95 : 70;
+          this.speed = role === 'interior' ? 1.2 : 1.0 + Math.random() * 0.35;
+          this.angle = rand(0, TWO_PI);
+          this.state = role === 'patrol' ? 'patrol' : 'guard';
+          this.alert = false;
+          this.dead = false;
+          this.cooldown = rand(0.2, 1.2);
+          this.lastSeenTimer = 0;
+          this.searchTimer = 0;
+          this.targetX = x;
+          this.targetY = y;
+          this.patrolPoints = this.makePatrol(role);
+          this.patrolIndex = 0;
+          this.aimSkill = role === 'overwatch' ? 0.020 : role === 'interior' ? 0.028 : 0.038;
+          this.defusing = false;
+        }
+
+        makePatrol(role) {
+          if (role === 'patrol') {
+            return [
+              { x: this.x, y: this.y },
+              { x: this.x + rand(-2.2, 2.2), y: this.y + rand(-2.2, 2.2) },
+              { x: this.x + rand(-2.0, 2.0), y: this.y + rand(-2.0, 2.0) }
+            ].filter(p => isPassableAt(this.floor, p.x, p.y));
+          }
+          if (role === 'reinforcement') {
+            return [
+              { x: this.x, y: this.y },
+              { x: 8 + rand(0, 10), y: 13 + rand(0, 6) }
+            ];
+          }
+          return [{ x: this.x, y: this.y }];
+        }
+
+        takeDamage(dmg) {
+          this.health -= dmg;
+          this.state = 'alert';
+          this.alert = true;
+          this.lastSeenTimer = 5;
+          if (this.health <= 0) {
+            this.dead = true;
+            particles.push({ x: this.x, y: this.y, floor: this.floor, life: 0.5, maxLife: 0.5, color: '#ff6b6b', size: 0.13 });
+          }
+        }
+
+        update(dt) {
+          if (this.dead) return;
+          this.cooldown -= dt;
+          if (this.lastSeenTimer > 0) this.lastSeenTimer -= dt;
+          if (this.searchTimer > 0) this.searchTimer -= dt;
+
+          if (bombSite.planted && this.floor === bombSite.floor) {
+            const dBomb = dist(this.x, this.y, bombSite.x, bombSite.y);
+            if (dBomb < 1.0 && canSeePlayer(this, player) === false && !this.defusing) {
+              this.state = 'defuse';
+            } else if (this.state !== 'defuse') {
+              this.state = 'pushBomb';
+            }
+          }
+
+          const sameFloor = this.floor === player.floor;
+          const d = dist(this.x, this.y, player.x, player.y);
+
+          if (sameFloor && d < 8.5 && hasLineOfSight(this.x, this.y, player.x, player.y, this.floor)) {
+            this.alert = true;
+            this.state = 'attack';
+            this.lastSeenTimer = 4.2;
+            this.targetX = player.x;
+            this.targetY = player.y;
+          } else if (this.alert && this.lastSeenTimer > 0) {
+            this.state = bombSite.planted ? 'pushBomb' : 'search';
+          } else if (!bombSite.planted) {
+            if (this.role === 'patrol') this.state = 'patrol';
+            else this.state = 'guard';
+          }
+
+          if (this.state === 'patrol') this.doPatrol(dt);
+          else if (this.state === 'guard') this.doGuard(dt);
+          else if (this.state === 'search') this.doSearch(dt);
+          else if (this.state === 'attack') this.doAttack(dt);
+          else if (this.state === 'pushBomb') this.doPushBomb(dt);
+          else if (this.state === 'defuse') this.doDefuse(dt);
+        }
+
+        doPatrol(dt) {
+          const p = this.patrolPoints[this.patrolIndex % this.patrolPoints.length];
+          this.moveToward(p.x, p.y, dt);
+          if (dist(this.x, this.y, p.x, p.y) < 0.35) {
+            this.patrolIndex = (this.patrolIndex + 1) % this.patrolPoints.length;
+          }
+        }
+
+        doGuard(dt) {
+          this.angle += Math.sin(performance.now() * 0.0003 + this.x) * 0.004;
+        }
+
+        doSearch(dt) {
+          if (bombSite.planted) {
+            this.doPushBomb(dt);
+            return;
+          }
+          if (dist(this.x, this.y, this.targetX, this.targetY) < 0.45) {
+            if (this.searchTimer <= 0) {
+              this.searchTimer = 1.8;
+              this.targetX = clamp(this.targetX + rand(-2, 2), 1.5, mapW - 1.5);
+              this.targetY = clamp(this.targetY + rand(-2, 2), 1.5, mapH - 1.5);
+            }
+          } else {
+            this.moveToward(this.targetX, this.targetY, dt);
+          }
+        }
+
+        doAttack(dt) {
+          this.targetX = player.x;
+          this.targetY = player.y;
+          const d = dist(this.x, this.y, player.x, player.y);
+
+          if (d > (this.role === 'interior' ? 2.7 : 4.2)) {
+            this.moveToward(player.x, player.y, dt);
+          } else {
+            const strafeAng = Math.atan2(player.y - this.y, player.x - this.x) + Math.PI / 2;
+            this.moveToward(this.x + Math.cos(strafeAng) * 0.7, this.y + Math.sin(strafeAng) * 0.7, dt, 0.55);
+          }
+
+          if (this.cooldown <= 0 && this.floor === player.floor && hasLineOfSight(this.x, this.y, player.x, player.y, this.floor)) {
+            const aim = Math.atan2(player.y - this.y, player.x - this.x) + rand(-this.aimSkill, this.aimSkill);
+            fireEnemyBullet(this.x, this.y, this.floor, aim, this.role === 'overwatch' ? 20 : 13 + Math.random() * 7);
+            this.cooldown = this.role === 'overwatch' ? rand(0.9, 1.3) : rand(0.5, 0.9);
+          }
+        }
+
+        doPushBomb(dt) {
+          if (this.floor !== bombSite.floor) {
+            this.moveToward(this.x, this.y, dt);
+            return;
+          }
+          this.moveToward(bombSite.x, bombSite.y, dt, 1.1);
+          if (this.cooldown <= 0 && this.floor === player.floor && dist(this.x, this.y, player.x, player.y) < 7.5 && hasLineOfSight(this.x, this.y, player.x, player.y, this.floor)) {
+            const aim = Math.atan2(player.y - this.y, player.x - this.x) + rand(-this.aimSkill * 1.3, this.aimSkill * 1.3);
+            fireEnemyBullet(this.x, this.y, this.floor, aim, 12 + Math.random() * 6);
+            this.cooldown = rand(0.45, 0.95);
+          }
+        }
+
+        doDefuse(dt) {
+          if (!bombSite.planted) {
+            this.defusing = false;
+            this.state = 'guard';
+            return;
+          }
+          if (this.floor !== bombSite.floor) {
+            this.state = 'pushBomb';
+            return;
+          }
+          const d = dist(this.x, this.y, bombSite.x, bombSite.y);
+          if (d > 0.8) {
+            this.moveToward(bombSite.x, bombSite.y, dt);
+            return;
+          }
+
+          this.defusing = true;
+          if (bombSite.defuseBy == null) {
+            bombSite.defuseBy = this;
+            bombSite.defuseTimer = 6.0;
+          }
+          if (bombSite.defuseBy !== this) {
+            this.state = 'pushBomb';
+            this.defusing = false;
+          }
+        }
+
+        moveToward(tx, ty, dt, speedMul = 1) {
+          const ang = Math.atan2(ty - this.y, tx - this.x);
+          this.angle = ang;
+          const step = this.speed * speedMul * dt;
+          const nx = this.x + Math.cos(ang) * step;
+          const ny = this.y + Math.sin(ang) * step;
+          if (!collides(this.floor, nx, this.y, this.radius)) this.x = nx;
+          if (!collides(this.floor, this.x, ny, this.radius)) this.y = ny;
+        }
+      }
+
+      function collides(floor, x, y, r) {
+        const pts = [
+          [x - r, y - r], [x + r, y - r], [x - r, y + r], [x + r, y + r]
+        ];
+        for (const [px, py] of pts) {
+          if (isSolidAt(floor, px, py)) return true;
+        }
+        return false;
+      }
+
+      function hasLineOfSight(x1, y1, x2, y2, floor) {
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        const d = Math.hypot(dx, dy);
+        const steps = Math.ceil(d * 8);
+        for (let i = 1; i < steps; i++) {
+          const t = i / steps;
+          const x = x1 + dx * t;
+          const y = y1 + dy * t;
+          if (isSolidAt(floor, x, y)) return false;
+        }
+        return true;
+      }
+
+      function canSeePlayer(enemy, player) {
+        return enemy.floor === player.floor && hasLineOfSight(enemy.x, enemy.y, player.x, player.y, enemy.floor);
+      }
+
+      function fireEnemyBullet(x, y, floor, ang, damage) {
+        bullets.push({
+          x, y, floor, ang, speed: 9.5, life: 1.4, fromEnemy: true, damage
+        });
+      }
+
+      function firePlayerBullet() {
+        if (gameState === 'victory' || gameState === 'defeat' || gameState === 'menu') return;
+        const shot = player.weapon.tryShoot(player.angle);
+        if (!shot) return;
+        bullets.push({
+          x: player.x,
+          y: player.y,
+          floor: player.floor,
+          ang: shot.ang,
+          speed: 16,
+          life: 1.2,
+          fromEnemy: false,
+          damage: shot.damage
+        });
+      }
+
+      function spawnPickups() {
+        pickups = [
+          { x: 4.5, y: 5.5, floor: 0, type: 'ammo', amount: 24, used: false },
+          { x: 8.5, y: 11.5, floor: 0, type: 'armor', amount: 25, used: false },
+          { x: 18.5, y: 14.5, floor: 0, type: 'med', amount: 35, used: false },
+          { x: 15.5, y: 17.5, floor: 0, type: 'ammo', amount: 18, used: false },
+          { x: 9.5, y: 18.5, floor: -1, type: 'armor', amount: 30, used: false },
+          { x: 16.5, y: 17.5, floor: 1, type: 'med', amount: 30, used: false },
+          { x: 13.5, y: 15.5, floor: 1, type: 'ammo', amount: 12, used: false },
+        ];
+      }
+
+      function spawnEnemies() {
+        enemies = [
+          new Enemy(6.5, 5.5, 0, 'patrol'),
+          new Enemy(9.5, 8.5, 0, 'patrol'),
+          new Enemy(16.5, 6.5, 0, 'patrol'),
+          new Enemy(18.5, 14.5, 0, 'guard'),
+          new Enemy(8.5, 14.5, 0, 'guard'),
+          new Enemy(15.5, 16.5, 0, 'interior'),
+          new Enemy(12.5, 18.2, 0, 'interior'),
+          new Enemy(14.5, 16.5, 1, 'overwatch'),
+          new Enemy(11.5, 17.5, -1, 'heavy')
+        ];
+      }
+
+      function spawnReinforcements() {
+        if (spawnReinforcementsDone) return;
+        spawnReinforcementsDone = true;
+        enemies.push(
+          new Enemy(20.5, 12.5, 0, 'reinforcement'),
+          new Enemy(3.5, 20.5, 0, 'reinforcement'),
+          new Enemy(19.5, 5.5, 0, 'reinforcement'),
+          new Enemy(7.5, 13.8, 0, 'reinforcement')
+        );
+        showMessage('Enemy reinforcements incoming!', 1800);
+      }
+
+      function resetGame() {
+        player = new Player();
+        enemies = [];
+        bullets = [];
+        particles = [];
+        spawnEnemies();
+        spawnPickups();
+        missionTimer = 900;
+        bombSite.planted = false;
+        bombSite.timer = 0;
+        bombSite.defuseTimer = 0;
+        bombSite.defuseBy = null;
+        spawnReinforcementsDone = false;
+        plantProgress = 0;
+        interactPressed = false;
+        postPlantMessageShown = false;
+        gameState = 'active';
+        ui.menuOverlay.style.display = 'none';
+        ui.restartBtn.style.display = 'none';
+        if (document.pointerLockElement !== canvas) canvas.requestPointerLock();
+      }
+
+      function winGame() {
+        gameState = 'victory';
+        document.exitPointerLock?.();
+        ui.menuOverlay.style.display = 'flex';
+        ui.startBtn.style.display = 'none';
+        ui.restartBtn.style.display = 'inline-block';
+        document.querySelector('#menuCard h1').textContent = 'MISSION SUCCESS';
+        document.querySelector('#menuCard p').innerHTML =
+          'The bomb detonated and the safehouse was destroyed. You survived the assault and held off the defenders.';
+      }
+
+      function loseGame(reason) {
+        gameState = 'defeat';
+        document.exitPointerLock?.();
+        ui.menuOverlay.style.display = 'flex';
+        ui.startBtn.style.display = 'none';
+        ui.restartBtn.style.display = 'inline-block';
+        document.querySelector('#menuCard h1').textContent = 'MISSION FAILED';
+        document.querySelector('#menuCard p').innerHTML = reason;
+      }
+
+      ui.startBtn.addEventListener('click', resetGame);
+      ui.restartBtn.addEventListener('click', () => {
+        document.querySelector('#menuCard h1').textContent = 'SAFEHOUSE ASSAULT';
+        document.querySelector('#menuCard p').innerHTML =
+          'Assault a fortified forest safehouse, eliminate defenders, breach the house, and plant the bomb on the hardpoint. Once planted, hold the position and stop enemy reinforcements from defusing it.';
+        ui.startBtn.style.display = 'inline-block';
+        ui.restartBtn.style.display = 'none';
+        resetGame();
+      });
+
+      let mouseDownLeft = false;
+      document.addEventListener('mousedown', (e) => {
+        if (e.button === 0) mouseDownLeft = true;
+      });
+      document.addEventListener('mouseup', (e) => {
+        if (e.button === 0) mouseDownLeft = false;
+      });
+
+      function update(dt) {
+        if (gameState !== 'active' && gameState !== 'victory' && gameState !== 'defeat') return;
+        if (gameState === 'victory' || gameState === 'defeat') return;
+
+        missionTimer -= dt;
+        if (missionTimer <= 0) {
+          missionTimer = 0;
+          loseGame('The 15-minute mission timer expired.');
+          return;
+        }
+
+        player.update(dt);
+
+        if (mouseLocked && mouseDownLeft) {
+          firePlayerBullet();
+        }
+
+        updateBullets(dt);
+        updateEnemies(dt);
+        updatePickups();
+        updateBomb(dt);
+        updateParticles(dt);
+
+        enemies = enemies.filter(e => !e.dead || Math.random() > 2); // keep dead filtered immediately below
+        enemies = enemies.filter(e => !e.dead);
+
+        interactPressed = false;
+      }
+
+      function updateParticles(dt) {
+        for (const p of particles) p.life -= dt;
+        particles = particles.filter(p => p.life > 0);
+      }
+
+      function updateBullets(dt) {
+        for (const b of bullets) {
+          b.life -= dt;
+          const step = b.speed * dt;
+          let rem = step;
+          while (rem > 0 && b.life > 0) {
+            const chunk = Math.min(rem, 0.08);
+            b.x += Math.cos(b.ang) * chunk;
+            b.y += Math.sin(b.ang) * chunk;
+            rem -= chunk;
+
+            if (isSolidAt(b.floor, b.x, b.y)) {
+              b.life = 0;
+              particles.push({ x: b.x, y: b.y, floor: b.floor, life: 0.2, maxLife: 0.2, color: '#ddd', size: 0.05 });
+              break;
+            }
+
+            if (b.fromEnemy) {
+              if (player.floor === b.floor && dist(b.x, b.y, player.x, player.y) < player.radius) {
+                player.takeDamage(b.damage);
+                b.life = 0;
+                break;
+              }
+            } else {
+              for (const e of enemies) {
+                if (!e.dead && e.floor === b.floor && dist(b.x, b.y, e.x, e.y) < e.radius) {
+                  e.takeDamage(b.damage);
+                  b.life = 0;
+                  break;
+                }
+              }
+              if (bombSite.defuseBy && bombSite.defuseBy.floor === b.floor && dist(b.x, b.y, bombSite.defuseBy.x, bombSite.defuseBy.y) < bombSite.defuseBy.radius) {
+                bombSite.defuseBy.state = 'attack';
+              }
+            }
+          }
+        }
+        bullets = bullets.filter(b => b.life > 0);
+      }
+
+      function updateEnemies(dt) {
+        for (const e of enemies) e.update(dt);
+      }
+
+      function updatePickups() {
+        for (const p of pickups) {
+          if (p.used || p.floor !== player.floor) continue;
+          const d = dist(p.x, p.y, player.x, player.y);
+          if (d < 0.7) {
+            ui.centerMessage.style.display = 'block';
+            ui.centerMessage.textContent = `Press E to pick up ${p.type === 'ammo' ? 'ammo' : p.type === 'med' ? 'medkit' : 'armor'}`;
+            if (interactPressed) {
+              p.used = true;
+              if (p.type === 'ammo') {
+                if (player.weaponKey === 'rifle') player.weapons.rifle.reserve += p.amount;
+                else player.weapons.pistol.reserve += Math.floor(p.amount * 0.7);
+                showMessage('Ammo collected');
+              } else if (p.type === 'med') {
+                player.health = Math.min(100, player.health + p.amount);
+                showMessage('Health restored');
+              } else {
+                player.armor = Math.min(100, player.armor + p.amount);
+                showMessage('Armor collected');
+              }
+            }
+            return;
+          }
+        }
+      }
+
+      function updateBomb(dt) {
+        let nearBomb = false;
+        if (!bombSite.planted && player.floor === bombSite.floor && dist(player.x, player.y, bombSite.x, bombSite.y) < 1.0) {
+          nearBomb = true;
+          ui.centerMessage.style.display = 'block';
+          ui.centerMessage.textContent = 'Hold E to plant bomb';
+          ui.progressWrap.style.display = 'block';
+
+          if (keys['e']) {
+            plantProgress += dt / bombSite.plantDuration;
+            ui.progressBar.style.width = `${clamp(plantProgress, 0, 1) * 100}%`;
+            if (plantProgress >= 1) {
+              bombSite.planted = true;
+              bombSite.timer = 60;
+              plantProgress = 0;
+              ui.progressWrap.style.display = 'none';
+              ui.progressBar.style.width = '0%';
+              spawnReinforcements();
+              showMessage('Bomb planted! Defend the site.', 1800);
+            }
+          } else {
+            plantProgress = Math.max(0, plantProgress - dt * 0.7);
+            ui.progressBar.style.width = `${plantProgress * 100}%`;
+          }
+        }
+
+        if (!nearBomb && !bombSite.planted) {
+          ui.progressWrap.style.display = 'none';
+          ui.progressBar.style.width = '0%';
+          plantProgress = 0;
+        }
+
+        if (bombSite.planted) {
+          if (!postPlantMessageShown) {
+            postPlantMessageShown = true;
+          }
+          bombSite.timer -= dt;
+          if (bombSite.timer <= 0) {
+            bombSite.timer = 0;
+            if (player.health > 0) winGame();
+          }
+
+          if (bombSite.defuseBy && (!bombSite.defuseBy.dead) && dist(bombSite.defuseBy.x, bombSite.defuseBy.y, bombSite.x, bombSite.y) < 0.9) {
+            bombSite.defuseTimer -= dt;
+            if (player.floor === bombSite.floor && hasLineOfSight(player.x, player.y, bombSite.defuseBy.x, bombSite.defuseBy.y, player.floor) && dist(player.x, player.y, bombSite.defuseBy.x, bombSite.defuseBy.y) < 9) {
+              // player can stop defuse by shooting; handled via bullet hit/state interruption
+            }
+            if (bombSite.defuseTimer <= 0) {
+              bombSite.planted = false;
+              loseGame('Enemy forces defused the bomb.');
+            }
+          } else {
+            bombSite.defuseBy = null;
+            bombSite.defuseTimer = 0;
+          }
+        }
+      }
+
+      function getFloorColor(floor, x, y) {
+        const ch = tileAt(floor, x, y);
+        if (floor === -1) return colors.floorBasement;
+        if (!isInsideHouse(x, y)) {
+          if (isCourtyard(x, y)) return colors.floorConcrete;
+          return colors.floorForest;
+        }
+        if (ch === 'L' || ch === 'U' || ch === 'b' || ch === 'B' || ch === 'S') {
+          return floor === 0 || floor === 1 ? colors.floorWood : colors.floorBasement;
+        }
+        return colors.floorConcrete;
+      }
+
+      function wallColor(side) {
+        if (side === 0) return colors.wallEast;
+        if (side === 1) return colors.wallWest;
+        if (side === 2) return colors.wallNorth;
+        return colors.wallSouth;
+      }
+
+      function castRay(angle) {
+        const sin = Math.sin(angle);
+        const cos = Math.cos(angle);
+
+        let mapX = Math.floor(player.x);
+        let mapY = Math.floor(player.y);
+
+        let sideDistX, sideDistY;
+        const deltaDistX = Math.abs(1 / (cos || 0.0001));
+        const deltaDistY = Math.abs(1 / (sin || 0.0001));
+
+        let stepX, stepY;
+        if (cos < 0) {
+          stepX = -1;
+          sideDistX = (player.x - mapX) * deltaDistX;
+        } else {
+          stepX = 1;
+          sideDistX = (mapX + 1 - player.x) * deltaDistX;
+        }
+
+        if (sin < 0) {
+          stepY = -1;
+          sideDistY = (player.y - mapY) * deltaDistY;
+        } else {
+          stepY = 1;
+          sideDistY = (mapY + 1 - player.y) * deltaDistY;
+        }
+
+        let hit = false;
+        let side = 0;
+
+        while (!hit) {
+          if (sideDistX < sideDistY) {
+            sideDistX += deltaDistX;
+            mapX += stepX;
+            side = stepX > 0 ? 0 : 1;
+          } else {
+            sideDistY += deltaDistY;
+            mapY += stepY;
+            side = stepY > 0 ? 2 : 3;
+          }
+
+          if (mapX < 0 || mapY < 0 || mapX >= mapW || mapY >= mapH) {
+            hit = true;
+            break;
+          }
+
+          if (isSolidAt(player.floor, mapX + 0.5, mapY + 0.5)) {
+            hit = true;
+            break;
+          }
+        }
+
+        let perpDist;
+        if (side === 0 || side === 1) {
+          perpDist = (mapX - player.x + (1 - stepX) / 2) / (cos || 0.0001);
+        } else {
+          perpDist = (mapY - player.y + (1 - stepY) / 2) / (sin || 0.0001);
+        }
+
+        perpDist = Math.max(0.001, Math.abs(perpDist));
+        return { dist: perpDist, side };
+      }
+
+      function render() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        const horizon = canvas.height / 2 + player.pitch * 260;
+        ctx.fillStyle = colors.sky;
+        ctx.fillRect(0, 0, canvas.width, horizon);
+        ctx.fillStyle = player.floor === -1 ? '#2b3034' : '#263225';
+        ctx.fillRect(0, horizon, canvas.width, canvas.height - horizon);
+
+        const zBuffer = new Array(canvas.width);
+
+        for (let x = 0; x < canvas.width; x++) {
+          const cameraX = 2 * x / canvas.width - 1;
+          const rayAngle = player.angle + Math.atan(cameraX * Math.tan(HALF_FOV));
+          const ray = castRay(rayAngle);
+          zBuffer[x] = ray.dist;
+
+          const wallHeight = Math.min(canvas.height * 1.4, canvas.height / ray.dist);
+          const drawStart = Math.floor(horizon - wallHeight / 2);
+          const drawEnd = Math.floor(horizon + wallHeight / 2);
+
+          let col = wallColor(ray.side);
+          const shade = clamp(1 - ray.dist / 18, 0.18, 1);
+          ctx.fillStyle = shadeColor(col, shade);
+          ctx.fillRect(x, drawStart, 1, drawEnd - drawStart);
+
+          const floorShade = clamp(1 - ray.dist / 24, 0.2, 0.9);
+          ctx.fillStyle = `rgba(255,255,255,${0.02 * floorShade})`;
+          ctx.fillRect(x, drawEnd, 1, canvas.height - drawEnd);
+
+          ctx.fillStyle = `rgba(0,0,0,${0.12 + ray.dist / 40})`;
+          ctx.fillRect(x, 0, 1, drawStart);
+        }
+
+        const sprites = [];
+
+        for (const e of enemies) {
+          if (e.dead || e.floor !== player.floor) continue;
+          sprites.push({
+            type: 'enemy',
+            x: e.x,
+            y: e.y,
+            color: e.state === 'attack' || e.state === 'pushBomb' || e.state === 'defuse' ? colors.enemyAlert : colors.enemy,
+            size: e.role === 'heavy' ? 0.9 : 0.72,
+            enemyRef: e
+          });
+        }
+
+        for (const p of pickups) {
+          if (p.used || p.floor !== player.floor) continue;
+          sprites.push({
+            type: 'pickup',
+            x: p.x,
+            y: p.y,
+            color: p.type === 'ammo' ? colors.pickupAmmo : p.type === 'med' ? colors.pickupMed : colors.pickupArmor,
+            size: 0.36
+          });
+        }
+
+        if (bombSite.floor === player.floor) {
+          sprites.push({
+            type: 'bomb',
+            x: bombSite.x,
+            y: bombSite.y,
+            color: colors.bomb,
+            size: 0.4
+          });
+        }
+
+        for (const p of particles) {
+          if (p.floor !== player.floor) continue;
+          sprites.push({
+            type: 'particle',
+            x: p.x,
+            y: p.y,
+            color: p.color,
+            size: p.size
+          });
+        }
+
+        sprites.sort((a, b) => dist(player.x, player.y, b.x, b.y) - dist(player.x, player.y, a.x, a.y));
+
+        for (const s of sprites) {
+          const dx = s.x - player.x;
+          const dy = s.y - player.y;
+          const distance = Math.hypot(dx, dy);
+          const angleTo = Math.atan2(dy, dx) - player.angle;
+          const rel = normalizeAngle(angleTo);
+
+          if (Math.abs(rel) > HALF_FOV + 0.3) continue;
+          if (distance < 0.2) continue;
+
+          const screenX = (0.5 + Math.tan(rel) / (2 * Math.tan(HALF_FOV))) * canvas.width;
+          const spriteHeight = canvas.height / distance * s.size;
+          const spriteWidth = spriteHeight * 0.65;
+          const screenY = horizon - spriteHeight / 2;
+
+          const startX = Math.floor(screenX - spriteWidth / 2);
+          const endX = Math.floor(screenX + spriteWidth / 2);
+
+          let blocked = false;
+          const sx = clamp(Math.floor(screenX), 0, canvas.width - 1);
+          if (zBuffer[sx] < distance) blocked = true;
+          if (blocked) continue;
+
+          ctx.fillStyle = s.color;
+          ctx.fillRect(startX, screenY, spriteWidth, spriteHeight);
+
+          if (s.type === 'enemy' && s.enemyRef) {
+            const hp = clamp(s.enemyRef.health / (s.enemyRef.role === 'heavy' ? 95 : 70), 0, 1);
+            ctx.fillStyle = 'rgba(0,0,0,0.8)';
+            ctx.fillRect(startX, screenY - 9, spriteWidth, 5);
+            ctx.fillStyle = '#6dff83';
+            ctx.fillRect(startX, screenY - 9, spriteWidth * hp, 5);
+          }
+
+          if (s.type === 'bomb' && bombSite.planted) {
+            ctx.fillStyle = '#111';
+            ctx.fillRect(startX, screenY - 8, spriteWidth, 5);
+            ctx.fillStyle = '#ff6f6f';
+            ctx.fillRect(startX, screenY - 8, spriteWidth * (bombSite.timer / 60), 5);
+          }
+        }
+
+        drawWeapon();
+      }
+
+      function drawWeapon() {
+        const w = canvas.width;
+        const h = canvas.height;
+        const bob = Math.sin(performance.now() * 0.008) * 4;
+        ctx.save();
+        ctx.translate(0, bob);
+
+        if (player.weaponKey === 'rifle') {
+          ctx.fillStyle = '#242a2f';
+          ctx.fillRect(w - 290, h - 150, 210, 70);
+          ctx.fillStyle = '#515b63';
+          ctx.fillRect(w - 220, h - 128, 110, 18);
+          ctx.fillStyle = '#c7a14f';
+          ctx.fillRect(w - 130, h - 134, 50, 10);
+        } else {
+          ctx.fillStyle = '#2f3338';
+          ctx.fillRect(w - 220, h - 145, 125, 58);
+          ctx.fillStyle = '#838b92';
+          ctx.fillRect(w - 170, h - 126, 58, 12);
+        }
+
+        ctx.restore();
+      }
+
+      function shadeColor(hex, factor) {
+        const c = hex.replace('#', '');
+        const r = parseInt(c.slice(0,2),16);
+        const g = parseInt(c.slice(2,4),16);
+        const b = parseInt(c.slice(4,6),16);
+        return `rgb(${Math.floor(r * factor)},${Math.floor(g * factor)},${Math.floor(b * factor)})`;
+      }
+
+      function updateUI() {
+        if (!player) return;
+
+        ui.healthText.textContent = Math.floor(player.health);
+        ui.armorText.textContent = Math.floor(player.armor);
+        ui.weaponText.textContent = player.weapon.name + (player.weapon.reloading ? ' (Reloading)' : '');
+        ui.ammoText.textContent = `${player.weapon.mag} / ${player.weapon.reserve}`;
+        ui.enemyText.textContent = enemies.filter(e => !e.dead).length;
+        ui.missionTimerText.textContent = formatTime(missionTimer);
+
+        if (!bombSite.planted) {
+          ui.bombText.innerHTML = '<span class="warn">Not planted</span>';
+          ui.statusText.textContent = isInsideHouse(player.x, player.y) ? 'Reach hardpoint and plant bomb' : 'Infiltrate the compound';
+          ui.defuseText.textContent = 'None';
+        } else {
+          ui.bombText.innerHTML = `<span class="danger">Detonation in ${formatTime(bombSite.timer)}</span>`;
+          ui.statusText.textContent = 'Defend the bomb site';
+          if (bombSite.defuseBy) ui.defuseText.innerHTML = `<span class="danger">Enemy defusing (${bombSite.defuseTimer.toFixed(1)}s)</span>`;
+          else ui.defuseText.innerHTML = '<span class="good">No defuse attempt</span>';
+        }
+
+        if (!bombSite.planted && ui.centerMessage.style.display === 'block' && !ui.centerMessage.textContent.includes('plant') && !ui.centerMessage.textContent.includes('pick up')) {
+          ui.centerMessage.style.display = 'none';
+        }
+      }
+
+      function loop(ts) {
+        const dt = Math.min(0.033, (ts - lastTime) / 1000 || 0.016);
+        lastTime = ts;
+
+        if (gameState === 'active') {
+          update(dt);
+          render();
+          updateUI();
+        } else if (player) {
+          render();
+          updateUI();
+        }
+
+        requestAnimationFrame(loop);
+      }
+
+      requestAnimationFrame(loop);
+    })();
+  </script>
+</body>
+</html>
